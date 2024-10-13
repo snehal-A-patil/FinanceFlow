@@ -6,26 +6,42 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const PortfolioChart = ({ data }) => {
-  const chartData = {
-    labels: data.labels,  // Investment names
+  // Default chart data if 'data' is not provided
+  const defaultData = {
+    labels: ['No Data Available'],
     datasets: [
       {
-        label: 'Portfolio Value',
-        data: data.datasets[0].data,  // Current values of investments
-        backgroundColor: [
-          '#4caf50', // Green for positive investments
-          '#f44336', // Red for negative investments
-          '#2196f3', // Blue for neutral or low-risk investments
-          '#ff9800', // Orange for high-risk or volatile investments
-          '#9c27b0'  // Purple for diverse investment types
-        ],
-        hoverBackgroundColor: [
-          '#66bb6a', '#ef5350', '#42a5f5', '#ffb74d', '#ba68c8'
-        ],
+        data: [1],
+        backgroundColor: ['#ccc'],
+        hoverBackgroundColor: ['#bbb'],
         borderWidth: 1,
       },
     ],
   };
+
+  // Use default data if the passed data is not valid
+  const chartData = data && data.labels && data.datasets && data.datasets[0]?.data
+    ? {
+        labels: data.labels,
+        datasets: [
+          {
+            label: 'Portfolio Value',
+            data: data.datasets[0].data,
+            backgroundColor: [
+              '#4caf50',
+              '#f44336',
+              '#2196f3',
+              '#ff9800',
+              '#9c27b0',
+            ],
+            hoverBackgroundColor: [
+              '#66bb6a', '#ef5350', '#42a5f5', '#ffb74d', '#ba68c8',
+            ],
+            borderWidth: 1,
+          },
+        ],
+      }
+    : defaultData;  // Fallback to default data
 
   const options = {
     responsive: true,
@@ -37,13 +53,13 @@ const PortfolioChart = ({ data }) => {
       tooltip: {
         callbacks: {
           label: (tooltipItem) => {
-            const value = data.datasets[0].data[tooltipItem.dataIndex]; // Access value correctly
-            const label = data.labels[tooltipItem.dataIndex];  // Access label correctly
+            const value = chartData.datasets[0].data[tooltipItem.dataIndex]; // Access value correctly
+            const label = chartData.labels[tooltipItem.dataIndex];  // Access label correctly
             return `${label}: ₹${value.toFixed(2)}`;
-          }
-        }
-      }
-    }
+          },
+        },
+      },
+    },
   };
 
   return (

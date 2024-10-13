@@ -1,240 +1,227 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 
 function Budget() {
-  // Dummy budget data
-  const initialBudgets = [
-    { id: 1, month: 'October', category: 'Food', spent: 200 * 82, limit: 300 * 82 },
-    { id: 2, month: 'October', category: 'Transport', spent: 50 * 82, limit: 100 * 82 },
-    { id: 3, month: 'October', category: 'Entertainment', spent: 80 * 82, limit: 150 * 82 }
+  const [budgets, setBudgets] = useState([]);
+  const [newBudget, setNewBudget] = useState({ month: '', category: '', spent: '', limit: '' });
+  const [totalSpent, setTotalSpent] = useState(0);
+  const [totalLimit, setTotalLimit] = useState(0);
+  const [editingBudget, setEditingBudget] = useState(null);
+
+  // Month and category options
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const [budgets, setBudgets] = useState(initialBudgets); // State to manage budgets
-  const [newBudget, setNewBudget] = useState({ month: '', category: '', spent: '', limit: '' });
-  const [editBudget, setEditBudget] = useState({ id: null, month: '', category: '', spent: '', limit: '' });
+  const categories = [
+    'Food', 'Transportation', 'Entertainment', 'Utilities', 'Healthcare',
+    'Savings', 'Others'
+  ];
 
-  const calculatePercentage = (spent, limit) => {
-    return Math.min((spent / limit) * 100, 100).toFixed(1);
+  // Fetch budgets
+  useEffect(() => {
+    const fetchBudgets = async () => {
+      try {
+        const token = localStorage.getItem('token'); // Assuming token is stored in localStorage
+        const response = await fetch('http://localhost:5000/api/budgets', {
+          headers: {
+            Authorization: `Bearer ${token}` // Pass token in request header
+          }
+        });
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        setBudgets(data);
+        calculateTotals(data);
+      } catch (error) {
+        console.error('Error fetching budgets:', error);
+      }
+    };
+
+    fetchBudgets();
+  }, []);
+
+  const calculateTotals = (budgets) => {
+    const spent = budgets.reduce((acc, bud) => acc + bud.spent, 0);
+    const limit = budgets.reduce((acc, bud) => acc + bud.limit, 0);
+    setTotalSpent(spent);
+    setTotalLimit(limit);
   };
 
-  const getProgressBarColor = (percentage) => {
-    if (percentage < 50) {
-      return 'bg-green-500';
-    } else if (percentage >= 50 && percentage < 90) {
-      return 'bg-yellow-500';
-    } else {
-      return 'bg-red-500';
+  const addOrUpdateBudget = async () => {
+    const budgetData = {
+      month: newBudget.month,
+      category: newBudget.category,
+      spent: Number(newBudget.spent) || 0,
+      limit: Number(newBudget.limit) || 0,
+    };
+
+    try {
+      const token = localStorage.getItem('token');
+      let response;
+      if (editingBudget) {
+        response = await fetch(`http://localhost:5000/api/budgets/${editingBudget._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`, // Pass token in request header
+          },
+          body: JSON.stringify(budgetData),
+        });
+      } else {
+        response = await fetch('http://localhost:5000/api/budgets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`, // Pass token in request header
+          },
+          body: JSON.stringify(budgetData),
+        });
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Network response was not ok');
+      }
+
+      const newBudgetResponse = await response.json();
+      if (editingBudget) {
+        setBudgets(budgets.map(b => (b._id === newBudgetResponse._id ? newBudgetResponse : b)));
+      } else {
+        setBudgets((prev) => [...prev, newBudgetResponse]);
+      }
+      resetForm();
+      calculateTotals([...budgets, newBudgetResponse]);
+    } catch (error) {
+      console.error('Error adding/updating budget:', error);
     }
   };
 
-  // Function to add a new budget
-  const addBudget = () => {
-    if (!newBudget.month || !newBudget.category || !newBudget.spent || !newBudget.limit) return;
+  const deleteBudget = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/budgets/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`, // Pass token in request header
+        },
+      });
 
-    const updatedBudgets = [
-      ...budgets,
-      {
-        id: budgets.length + 1,
-        month: newBudget.month,
-        category: newBudget.category,
-        spent: parseFloat(newBudget.spent),
-        limit: parseFloat(newBudget.limit),
-      },
-    ];
-    setBudgets(updatedBudgets);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Network response was not ok');
+      }
+
+      setBudgets(budgets.filter(b => b._id !== id));
+      calculateTotals(budgets.filter(b => b._id !== id));
+    } catch (error) {
+      console.error('Error deleting budget:', error);
+    }
+  };
+
+  const resetForm = () => {
     setNewBudget({ month: '', category: '', spent: '', limit: '' });
+    setEditingBudget(null);
   };
 
-  // Function to update a budget
-  const updateBudget = (id) => {
-    const updatedBudgets = budgets.map((bud) => 
-      bud.id === id 
-        ? { ...bud, month: editBudget.month, category: editBudget.category, spent: parseFloat(editBudget.spent), limit: parseFloat(editBudget.limit) } 
-        : bud
-    );
-    setBudgets(updatedBudgets);
-    setEditBudget({ id: null, month: '', category: '', spent: '', limit: '' });
+  const startEditing = (budget) => {
+    setNewBudget({
+      month: budget.month,
+      category: budget.category,
+      spent: budget.spent,
+      limit: budget.limit,
+    });
+    setEditingBudget(budget);
   };
 
-  // Function to remove a budget
-  const removeBudget = (id) => {
-    const updatedBudgets = budgets.filter((bud) => bud.id !== id);
-    setBudgets(updatedBudgets);
-  };
+  const renderBudgetOverview = () => {
+    return budgets.map(budget => {
+      const spentPercentage = budget.limit > 0 
+        ? Math.min((budget.spent / budget.limit) * 100, 100) 
+        : 0; // If limit is 0, set percentage to 0 to avoid division by zero
 
-  // Function to reset budgets for the month
-  const resetBudgets = () => {
-    setBudgets([]);
-    setNewBudget({ month: '', category: '', spent: '', limit: '' });
-    setEditBudget({ id: null, month: '', category: '', spent: '', limit: '' });
+      return (
+        <div key={budget._id} className="bg-white shadow-md rounded-lg p-4 mb-4">
+          <h4 className="font-bold">{budget.month} - {budget.category}</h4>
+          <p>Spent: ₹{budget.spent.toFixed(2)} / Limit: ₹{budget.limit.toFixed(2)}</p>
+          <div className="h-4 bg-gray-200 rounded">
+            <div
+              className="h-full bg-green-500 rounded"
+              style={{ width: `${spentPercentage}%` }}
+            />
+          </div>
+          <p className="text-sm">{spentPercentage.toFixed(2)}% spent</p>
+        </div>
+      );
+    });
   };
-
-  // Calculate total spent and remaining for all budgets
-  const totalSpent = budgets.reduce((acc, bud) => acc + bud.spent, 0);
-  const totalLimit = budgets.reduce((acc, bud) => acc + bud.limit, 0);
-  const totalRemaining = totalLimit - totalSpent;
 
   return (
     <div className='flex'>
       <Sidebar />
-      
       <div className="flex-1 p-6 bg-gray-100 ml-64">
-        <h1 className="text-3xl font-bold mb-6">Budget Overview</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">Budget Overview</h1>
 
         {/* Add New Budget Form */}
-        <div className="mb-6">
-          <h3 className="font-bold mb-2">Add New Budget</h3>
-          <input
-            type="text"
-            placeholder="Month (e.g., October)"
-            value={newBudget.month}
-            onChange={(e) => setNewBudget({ ...newBudget, month: e.target.value })}
-            className="border rounded p-2 mr-2"
-          />
-          <input
-            type="text"
-            placeholder="Category"
-            value={newBudget.category}
-            onChange={(e) => setNewBudget({ ...newBudget, category: e.target.value })}
-            className="border rounded p-2 mr-2"
-          />
-          <input
-            type="number"
-            placeholder="Spent (in INR)"
-            value={newBudget.spent}
-            onChange={(e) => setNewBudget({ ...newBudget, spent: e.target.value })}
-            className="border rounded p-2 mr-2"
-          />
-          <input
-            type="number"
-            placeholder="Limit (in INR)"
-            value={newBudget.limit}
-            onChange={(e) => setNewBudget({ ...newBudget, limit: e.target.value })}
-            className="border rounded p-2 mr-2"
-          />
-          <button onClick={addBudget} className="bg-green-500 text-white p-2 rounded">
-            Add
-          </button>
-        </div>
+        <div className="bg-white shadow-md rounded-lg p-6 mb-6">
+          <h3 className="font-bold mb-4 text-lg">{editingBudget ? 'Edit Budget' : 'Add New Budget'}</h3>
+          <div className="flex flex-col md:flex-row mb-4">
+            <select
+              value={newBudget.month}
+              onChange={(e) => setNewBudget({ ...newBudget, month: e.target.value })}
+              className="border rounded p-2 mr-2 mb-2 md:mb-0"
+            >
+              <option value="">Select Month</option>
+              {months.map((month, index) => (
+                <option key={index} value={month}>{month}</option>
+              ))}
+            </select>
 
-        {/* Total Spent and Remaining */}
-        <div className="bg-gray-200 p-4 rounded-lg mb-6">
-          <h3 className="font-bold mb-2">Total Overview</h3>
-          <p>Total Spent: ₹{totalSpent.toFixed(2)}</p>
-          <p>Total Limit: ₹{totalLimit.toFixed(2)}</p>
-          <p className={`font-bold ${totalRemaining < 0 ? 'text-red-500' : 'text-green-600'}`}>
-            Total Remaining: ₹{totalRemaining.toFixed(2)}
-          </p>
-        </div>
+            <select
+              value={newBudget.category}
+              onChange={(e) => setNewBudget({ ...newBudget, category: e.target.value })}
+              className="border rounded p-2 mr-2 mb-2 md:mb-0"
+            >
+              <option value="">Select Category</option>
+              {categories.map((category, index) => (
+                <option key={index} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
 
-        {/* List of Budgets */}
-        <ul className="bg-white p-6 rounded-lg shadow-lg space-y-6">
-          {budgets.map((bud) => {
-            const percentageUsed = calculatePercentage(bud.spent, bud.limit);
-            const progressBarColor = getProgressBarColor(percentageUsed);
-            const remaining = bud.limit - bud.spent;
-
-            return (
-              <li key={bud.id} className="mb-4">
-                <div className="flex justify-between mb-2">
-                  <span className="font-semibold text-lg">{bud.category} ({bud.month})</span>
-                  <span>
-                    <span className={`font-bold ${bud.spent > bud.limit ? 'text-red-500' : 'text-green-500'}`}>
-                      ₹{bud.spent.toFixed(2)}
-                    </span>
-                    <span className="text-gray-500"> / ₹{bud.limit.toFixed(2)}</span>
-                    <span className="ml-2 text-sm text-gray-600">({percentageUsed}%)</span>
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full bg-gray-200 rounded-full h-4">
-                  <div
-                    className={`${progressBarColor} h-4 rounded-full`}
-                    style={{ width: `${percentageUsed}%` }}
-                  ></div>
-                </div>
-
-                {/* Show remaining budget */}
-                <div className={`mt-2 text-sm ${remaining < 0 ? 'text-red-500' : 'text-gray-600'}`}>
-                  {remaining < 0
-                    ? `You are over budget by ₹${Math.abs(remaining).toFixed(2)}!`
-                    : `Remaining budget: ₹${remaining.toFixed(2)}`}
-                </div>
-
-                {/* Alert if over budget */}
-                {bud.spent > bud.limit && (
-                  <div className="text-red-600 mt-2 text-sm">
-                    Warning: You have exceeded your budget for {bud.category}!
-                  </div>
-                )}
-
-                {/* Edit and Remove Buttons */}
-                <div className="mt-2">
-                  <button
-                    onClick={() => {
-                      setEditBudget({ id: bud.id, month: bud.month, category: bud.category, spent: bud.spent, limit: bud.limit });
-                    }}
-                    className="bg-blue-500 text-white p-1 rounded mr-2"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => removeBudget(bud.id)}
-                    className="bg-red-500 text-white p-1 rounded"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-
-        {/* Edit Budget Form */}
-        {editBudget.id && (
-          <div className="mt-6">
-            <h3 className="font-bold mb-2">Edit Budget</h3>
-            <input
-              type="text"
-              placeholder="Month"
-              value={editBudget.month}
-              onChange={(e) => setEditBudget({ ...editBudget, month: e.target.value })}
-              className="border rounded p-2 mr-2"
-            />
-            <input
-              type="text"
-              placeholder="Category"
-              value={editBudget.category}
-              onChange={(e) => setEditBudget({ ...editBudget, category: e.target.value })}
-              className="border rounded p-2 mr-2"
-            />
+          <div className="flex flex-col md:flex-row mb-4">
             <input
               type="number"
               placeholder="Spent (in INR)"
-              value={editBudget.spent}
-              onChange={(e) => setEditBudget({ ...editBudget, spent: e.target.value })}
-              className="border rounded p-2 mr-2"
+              value={newBudget.spent}
+              onChange={(e) => setNewBudget({ ...newBudget, spent: e.target.value })}
+              className="border rounded p-2 mr-2 mb-2 md:mb-0"
             />
             <input
               type="number"
               placeholder="Limit (in INR)"
-              value={editBudget.limit}
-              onChange={(e) => setEditBudget({ ...editBudget, limit: e.target.value })}
-              className="border rounded p-2 mr-2"
+              value={newBudget.limit}
+              onChange={(e) => setNewBudget({ ...newBudget, limit: e.target.value })}
+              className="border rounded p-2 mr-2 mb-2 md:mb-0"
             />
-            <button onClick={() => updateBudget(editBudget.id)} className="bg-yellow-500 text-white p-2 rounded">
-              Update
+            <button onClick={addOrUpdateBudget} className="bg-green-500 text-white p-2 rounded">
+              {editingBudget ? 'Update Budget' : 'Add Budget'}
             </button>
           </div>
-        )}
-
-        {/* Reset Budgets Button */}
-        <div className="mt-6">
-          <button onClick={resetBudgets} className="bg-red-600 text-white p-2 rounded">
-            Reset Budgets
-          </button>
         </div>
+
+        {/* Total Spent and Remaining */}
+        <div className="bg-white shadow-md rounded-lg p-4 mb-6">
+          <h3 className="font-bold mb-2 text-lg">Total Overview</h3>
+          <p>Total Spent: <span className="font-bold">₹{totalSpent.toFixed(2)}</span></p>
+          <p>Total Limit: <span className="font-bold">₹{totalLimit.toFixed(2)}</span></p>
+          <p className={`font-bold ${totalLimit - totalSpent < 0 ? 'text-red-500' : 'text-green-500'}`}>
+            Remaining: ₹{(totalLimit - totalSpent).toFixed(2)}
+          </p>
+        </div>
+
+        {/* Budget Overview */}
+        {renderBudgetOverview()}
       </div>
     </div>
   );

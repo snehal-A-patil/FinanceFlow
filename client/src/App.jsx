@@ -8,7 +8,7 @@ import Budget from './components/dashboardcomp/Budget';
 import PortfolioChart from './components/dashboardcomp/Investment';
 import Investment from './components/dashboardcomp/Investment';
 import Transactions from './components/dashboardcomp/Transactions';
-import FinancialGoals from './components/dashboardcomp/Financialgoals';
+import FinancialGoals from './components/dashboardcomp/FinancialGoals';
 import Settings from './components/dashboardcomp/Settings';
 
 function App() {

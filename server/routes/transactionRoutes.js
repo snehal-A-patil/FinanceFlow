@@ -1,7 +1,6 @@
-// routes/transactionRoutes.js
 const express = require('express');
 const {
-  getTransactions,
+  getAllTransactions,
   addTransaction,
   updateTransaction,
   deleteTransaction,
@@ -9,10 +8,10 @@ const {
 
 const router = express.Router();
 
-// Define the routes
-router.get('/', getTransactions); // GET all transactions
-router.post('/', addTransaction);   // POST a new transaction
-router.put('/:id', updateTransaction); // PUT to update a transaction
-router.delete('/:id', deleteTransaction); // DELETE a transaction
+// Routes for transactions
+router.get('/', getAllTransactions);
+router.post('/', addTransaction);
+router.put('/:id', updateTransaction);
+router.delete('/:id', deleteTransaction);
 
 module.exports = router;

@@ -1,12 +1,12 @@
-// controllers/transactionController.js
 const Transaction = require('../models/Transaction');
 
 // Get all transactions
-const getTransactions = async (req, res) => {
+const getAllTransactions = async (req, res) => {
   try {
-    const transactions = await Transaction.find();
+    const transactions = await Transaction.find().sort({ date: -1 }); // Sort by date descending
     res.json(transactions);
   } catch (error) {
+    console.error('Error fetching transactions:', error);
     res.status(500).json({ message: 'Failed to fetch transactions' });
   }
 };
@@ -15,7 +15,7 @@ const getTransactions = async (req, res) => {
 const addTransaction = async (req, res) => {
   const { description, amount, date, category, paymentMethod } = req.body;
 
-  const newTransaction = new Transaction({
+  const transaction = new Transaction({
     description,
     amount,
     date,
@@ -24,14 +24,15 @@ const addTransaction = async (req, res) => {
   });
 
   try {
-    const savedTransaction = await newTransaction.save();
+    const savedTransaction = await transaction.save();
     res.status(201).json(savedTransaction);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to add transaction' });
+    console.error('Error adding transaction:', error);
+    res.status(400).json({ message: 'Failed to add transaction' });
   }
 };
 
-// Update a transaction
+// Update transaction
 const updateTransaction = async (req, res) => {
   const { id } = req.params;
   const { description, amount, date, category, paymentMethod } = req.body;
@@ -49,7 +50,8 @@ const updateTransaction = async (req, res) => {
 
     res.json(updatedTransaction);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update transaction' });
+    console.error('Error updating transaction:', error);
+    res.status(400).json({ message: 'Failed to update transaction' });
   }
 };
 
@@ -59,17 +61,20 @@ const deleteTransaction = async (req, res) => {
 
   try {
     const deletedTransaction = await Transaction.findByIdAndDelete(id);
+
     if (!deletedTransaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
+
     res.json({ message: 'Transaction deleted successfully' });
   } catch (error) {
+    console.error('Error deleting transaction:', error);
     res.status(500).json({ message: 'Failed to delete transaction' });
   }
 };
 
 module.exports = {
-  getTransactions,
+  getAllTransactions,
   addTransaction,
   updateTransaction,
   deleteTransaction,

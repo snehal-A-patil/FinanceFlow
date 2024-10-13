@@ -1,227 +1,143 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 
 const Settings = () => {
-  const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '9876543210',
-  });
+  const [profile, setProfile] = useState({ name: '', email: '', phone: '', address: '', age: '' });
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
-  const [passwords, setPasswords] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
+  const fetchUserData = async () => {
+    const token = localStorage.getItem('token');
+    setErrorMessage('');
 
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    smsNotifications: false,
-  });
+    try {
+      const response = await fetch('http://localhost:5000/api/users/me', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-  const [securityQuestions, setSecurityQuestions] = useState({
-    question: 'What is your pet’s name?',
-    answer: '',
-  });
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
 
-  // Handle profile changes
-  const handleProfileChange = (e) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
+      const data = await response.json();
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setErrorMessage('Error fetching user data');
+    }
   };
 
-  // Handle password changes
-  const handlePasswordChange = (e) => {
-    setPasswords({ ...passwords, [e.target.name]: e.target.value });
-  };
+  const updateUserData = async () => {
+    const token = localStorage.getItem('token');
 
-  // Handle notification settings change
-  const handleNotificationChange = (e) => {
-    setNotifications({ ...notifications, [e.target.name]: e.target.checked });
-  };
-
-  // Handle security question changes
-  const handleSecurityQuestionChange = (e) => {
-    setSecurityQuestions({ ...securityQuestions, [e.target.name]: e.target.value });
-  };
-
-  // Profile update handler
-  const handleProfileUpdate = (e) => {
-    e.preventDefault();
-    alert('Profile updated successfully!');
-    // Here, you would make an API call to save the updated profile
-  };
-
-  // Password update handler
-  const handlePasswordUpdate = (e) => {
-    e.preventDefault();
-    if (passwords.newPassword !== passwords.confirmPassword) {
-      alert("New passwords don't match!");
+    if (!profile.name || !profile.email) {
+      setErrorMessage('Name and Email are required fields.');
       return;
     }
-    alert('Password updated successfully!');
-    // Here, you would make an API call to update the password
+
+    try {
+      const response = await fetch('http://localhost:5000/api/users/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          address: profile.address,
+          age: profile.age ? parseInt(profile.age) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Error: ${errorData.message || response.statusText}`);
+      }
+
+      const updatedData = await response.json();
+      setProfile(updatedData);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating user data:', error);
+      setErrorMessage('Error updating user data: ' + error.message);
+    }
   };
 
-  // Security question update handler
-  const handleSecurityQuestionUpdate = (e) => {
-    e.preventDefault();
-    alert('Security question updated successfully!');
-    // API call for updating security question
-  };
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
   return (
     <div className="flex">
       <Sidebar />
-
       <div className="flex-1 p-6 bg-gray-100 ml-64">
         <h1 className="text-3xl font-bold mb-6">Settings</h1>
-
-        {/* Profile Settings */}
+        {errorMessage && <p className="text-red-500">{errorMessage}</p>}
+        
         <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
           <h2 className="text-xl font-semibold mb-4">Profile Settings</h2>
-          <form onSubmit={handleProfileUpdate} className="space-y-4">
-            <div>
-              <label className="block font-semibold mb-2">Name</label>
+          {isEditing ? (
+            <>
               <input
                 type="text"
-                name="name"
+                placeholder="Name"
                 value={profile.name}
-                onChange={handleProfileChange}
-                className="w-full p-2 border rounded"
-                required
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                className="border rounded p-2 mb-2 w-full"
               />
-            </div>
-            <div>
-              <label className="block font-semibold mb-2">Email</label>
               <input
                 type="email"
-                name="email"
+                placeholder="Email"
                 value={profile.email}
-                onChange={handleProfileChange}
-                className="w-full p-2 border rounded"
-                required
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                className="border rounded p-2 mb-2 w-full"
               />
-            </div>
-            <div>
-              <label className="block font-semibold mb-2">Phone Number</label>
-              <input
-                type="tel"
-                name="phone"
-                value={profile.phone}
-                onChange={handleProfileChange}
-                className="w-full p-2 border rounded"
-                placeholder="Enter your phone number"
-                required
-              />
-            </div>
-            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-              Update Profile
-            </button>
-          </form>
-        </div>
-
-        {/* Password Settings */}
-        <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
-          <h2 className="text-xl font-semibold mb-4">Password Settings</h2>
-          <form onSubmit={handlePasswordUpdate} className="space-y-4">
-            <div>
-              <label className="block font-semibold mb-2">Current Password</label>
-              <input
-                type="password"
-                name="currentPassword"
-                value={passwords.currentPassword}
-                onChange={handlePasswordChange}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-semibold mb-2">New Password</label>
-              <input
-                type="password"
-                name="newPassword"
-                value={passwords.newPassword}
-                onChange={handlePasswordChange}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-semibold mb-2">Confirm New Password</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={passwords.confirmPassword}
-                onChange={handlePasswordChange}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-              Update Password
-            </button>
-          </form>
-        </div>
-
-        {/* Notification Settings */}
-        <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
-          <h2 className="text-xl font-semibold mb-4">Notification Settings</h2>
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="emailNotifications"
-                checked={notifications.emailNotifications}
-                onChange={handleNotificationChange}
-                className="mr-2"
-              />
-              <label>Email Notifications</label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="smsNotifications"
-                checked={notifications.smsNotifications}
-                onChange={handleNotificationChange}
-                className="mr-2"
-              />
-              <label>SMS Notifications</label>
-            </div>
-          </div>
-        </div>
-
-        {/* Security Questions */}
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h2 className="text-xl font-semibold mb-4">Security Question</h2>
-          <form onSubmit={handleSecurityQuestionUpdate} className="space-y-4">
-            <div>
-              <label className="block font-semibold mb-2">Security Question</label>
-              <select
-                name="question"
-                value={securityQuestions.question}
-                onChange={handleSecurityQuestionChange}
-                className="w-full p-2 border rounded"
-              >
-                <option value="What is your pet’s name?">What is your pet’s name?</option>
-                <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
-                <option value="What was your first car?">What was your first car?</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-semibold mb-2">Answer</label>
               <input
                 type="text"
-                name="answer"
-                value={securityQuestions.answer}
-                onChange={handleSecurityQuestionChange}
-                className="w-full p-2 border rounded"
-                required
+                placeholder="Phone Number"
+                value={profile.phone}
+                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                className="border rounded p-2 mb-2 w-full"
               />
-            </div>
-            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-              Update Security Question
-            </button>
-          </form>
+              <input
+                type="text"
+                placeholder="Address"
+                value={profile.address}
+                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                className="border rounded p-2 mb-2 w-full"
+              />
+              <input
+                type="number"
+                placeholder="Age"
+                value={profile.age || ''}
+                onChange={(e) => setProfile({ ...profile, age: e.target.value })}
+                className="border rounded p-2 mb-2 w-full"
+              />
+              <button onClick={updateUserData} className="bg-blue-500 text-white p-2 rounded">
+                Save Changes
+              </button>
+              <button onClick={() => setIsEditing(false)} className="bg-gray-300 text-black p-2 rounded ml-2">
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <p><strong>Name:</strong> {profile.name}</p>
+              <p><strong>Email:</strong> {profile.email}</p>
+              <p><strong>Phone Number:</strong> {profile.phone}</p>
+              <p><strong>Address:</strong> {profile.address}</p>
+              <p><strong>Age:</strong> {profile.age}</p>
+              <button onClick={() => setIsEditing(true)} className="bg-green-500 text-white p-2 rounded">
+                Edit Profile
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
